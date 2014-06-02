@@ -26,5 +26,8 @@ test:
 	$(FLAKE8) sync11eol
 	$(NOSE) sync11eol/tests
 
+serve:
+	./local/bin/gunicorn --paster ./deployment.ini
+
 clean:
 	rm -rf ./local
