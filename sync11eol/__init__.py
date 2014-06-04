@@ -16,6 +16,10 @@ from mozsvc.storage.mcclient import MemcachedClient
 # data, we can expire its metadata from memcached quite aggressively.
 DEFAULT_MEMCACHED_TTL = 60
 
+# Field defaults to use in the EOL json message.
+DEFAULT_EOL_URL = "https://account.services.mozilla.com/"
+DEFAULT_EOL_MESSAGE = "sync1.1 service has reached end-of-life"
+
 
 def get_timestamp():
     """Get the current time, as an integer.
@@ -143,13 +147,14 @@ def hard_eol(request):
     app.  We send it on every request that we possibly can, excluding only
     those for which the error-handling route is buggy.
     """
+    settings = request.registry.settings
     response = Response("0")
     response.status = "513 SERVICE EOL"
     response.content_type = "application/json"
     response.headers["X-Weave-Alert"] = json.dumps({
-        'code': 'hard-eol',
-        'message': 'sync has sunk',
-        'url': 'http://example.com'
+        "code": "hard-eol",
+        "url": settings.get("sync11eol.url", DEFAULT_EOL_URL),
+        "message": settings.get("sync11eol.message", DEFAULT_EOL_MESSAGE),
     })
     return response
 

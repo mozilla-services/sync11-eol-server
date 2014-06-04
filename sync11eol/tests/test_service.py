@@ -5,6 +5,7 @@
 import os
 import json
 import unittest
+import contextlib
 
 from webtest import TestApp
 from pyramid import testing
@@ -22,6 +23,9 @@ class TestSync11EOLService(unittest.TestCase):
         self.app = TestApp(wsgiapp)
         self.username = os.urandom(10).encode("hex")
         self.root = '/1.1/' + self.username
+
+    def tearDown(self):
+        testing.tearDown()
 
     def test_info_collections(self):
         # /info/collections tracks metaglobal and cryptokeys, but
@@ -82,3 +86,49 @@ class TestSync11EOLService(unittest.TestCase):
         self.app.get(self.root + '/storage/crypto/keys')
         # It goes to actually sync, and sees the EOL error.
         self.app.post(self.root + '/storage/bookmarks', '[{}]', status=513)
+
+
+class TestSync11EOLServiceConfig(unittest.TestCase):
+
+    def setUp(self):
+        self.config = testing.setUp()
+        self.config.include("sync11eol")
+        wsgiapp = self.config.make_wsgi_app()
+        wsgiapp = CatchErrors(wsgiapp)
+        self.app = TestApp(wsgiapp)
+
+    @contextlib.contextmanager
+    def make_config(self, **kwds):
+        config = testing.setUp(**kwds)
+        config.include("sync11eol")
+        config.commit()
+        yield config
+        testing.tearDown()
+
+    @contextlib.contextmanager
+    def make_app(self, **kwds):
+        with self.make_config(**kwds) as config:
+            yield TestApp(CatchErrors(config.make_wsgi_app()))
+
+    def test_configurable_alert_details(self):
+        settings = {
+            "sync11eol.message": "SYNC HAS SUNK",
+            "sync11eol.url": "http://sadtrombone.com/"
+        }
+        with self.make_app(settings=settings) as app:
+            r = app.get('/1.1/testme/storage/bookmarks', status=513)
+            alert = json.loads(r.headers["X-Weave-Alert"])
+            self.assertEquals(sorted(alert.keys()), ["code", "message", "url"])
+            self.assertEquals(alert["code"], "hard-eol")
+            self.assertEquals(alert["message"], "SYNC HAS SUNK")
+            self.assertEquals(alert["url"], "http://sadtrombone.com/")
+
+    def test_configurable_memcached_settings(self):
+        settings = {
+            "memcached.server": "localhost:12345",
+            "memcached.key_prefix": "testme",
+        }
+        with self.make_config(settings=settings) as config:
+            mc = config.registry["sync11eol.mcclient"]
+            self.assertEquals(mc.pool.server, "localhost:12345")
+            self.assertEquals(mc.key_prefix, "testme")
