@@ -8,13 +8,13 @@ import time
 from pyramid.response import Response
 from pyramid.view import view_config
 
-from mozsvc.config import get_configurator
+from mozsvc.config import get_configurator, SettingsDict
 from mozsvc.storage.mcclient import MemcachedClient
 
 
 # The memcached TTL, in seconds.  Since we're not actually storing any client
 # data, we can expire its metadata from memcached quite aggressively.
-MC_TTL = 60
+DEFAULT_MEMCACHED_TTL = 60
 
 
 def get_timestamp():
@@ -35,9 +35,11 @@ def mc_get(request, collection):
 
 def mc_set(request, collection, value):
     """Helper to set info for a user's collection in memcached."""
-    mc = request.registry["sync11eol.mcclient"]
+    registry = request.registry
+    mc = registry["sync11eol.mcclient"]
     key = request.matchdict["username"] + "/" + collection
-    return mc.set(key, value, time=MC_TTL)
+    ttl = registry.settings.get("memcached.ttl", DEFAULT_MEMCACHED_TTL)
+    return mc.set(key, value, time=ttl)
 
 
 def mc_del(request, collection):
@@ -164,8 +166,11 @@ def includeme(config):
     config.add_route("other", prefix + "*other")
     config.scan('sync11eol')
 
-    # XXX TODO: load memcached parameters from the config file.
-    config.registry["sync11eol.mcclient"] = MemcachedClient()
+    settings = config.registry.settings
+    if not isinstance(settings, SettingsDict):
+        settings = SettingsDict(settings)
+    mc = MemcachedClient(**settings.getsection("memcached"))
+    config.registry["sync11eol.mcclient"] = mc
 
 
 def main(global_config, **settings):

@@ -18,4 +18,4 @@ venusian==1.0a8
 wsgiref==0.1.2
 zope.deprecation==4.1.1
 zope.interface==4.1.1
-https://github.com/mozilla-services/mozservices/archive/5fabece891bbd3bd2c9528cb3bf0562b3efb4af1.zip
+https://github.com/mozilla-services/mozservices/archive/27e88d3b8f5b787e6b6b8e22bc7a432ed4757ea1.zip
