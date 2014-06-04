@@ -5,6 +5,8 @@ argparse==1.2.1
 configparser==3.3.0r2
 cornice==0.16.2
 distribute==0.7.3
+gevent==1.0.1
+greenlet==0.4.2
 gunicorn==18.0
 konfig==0.9
 pyramid==1.5

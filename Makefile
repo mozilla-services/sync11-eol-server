@@ -27,7 +27,7 @@ test:
 	$(NOSE) sync11eol/tests
 
 serve:
-	./local/bin/gunicorn --paster ./deployment.ini
+	./local/bin/gunicorn --paster ./deployment.ini --worker-class gevent
 
 clean:
 	rm -rf ./local
