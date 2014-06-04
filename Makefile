@@ -30,4 +30,4 @@ serve:
 	./local/bin/gunicorn --paster ./deployment.ini --worker-class gevent
 
 clean:
-	rm -rf ./local
+	rm -rf ./local *.egg-info
