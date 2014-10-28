@@ -11,8 +11,8 @@ It provides a tiny portion of the Sync1.1 API as documented here:
 
 It allows reads from "/info/collections", reads/writes to "meta/global" and
 "crypto/keys", and deletes to "/storage".  All other requests are rejected
-ith a special "513 SERVICE EOL" error that should trigger old sync clients
-to show a service-depdecation message to the user.
+with a special "513 SERVICE EOL" error that should trigger old sync clients
+to show a service-deprecation message to the user.
 
 The allowed requests are designed to work around a client bug, where the EOL
 messaging is not shown if it is "trumped" by an error at certain early stages
