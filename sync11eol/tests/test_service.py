@@ -50,6 +50,14 @@ class TestSync11EOLService(unittest.TestCase):
         self.assertEquals(r.json['modified'], ts)
         self.app.delete(self.root + '/storage/meta/global', status=513)
 
+    def test_meta_fxa_credentials(self):
+        # /meta/fxa_credentials can be read and written to, but not deleted.
+        self.app.get(self.root + '/storage/meta/fxa_credentials', status=404)
+        r = self.app.put(self.root + '/storage/meta/fxa_credentials', '{}')
+        ts = float(r.body)
+        r = self.app.get(self.root + '/storage/meta/fxa_credentials')
+        self.assertEquals(r.json['modified'], ts)
+
     def test_crypto_keys(self):
         # /crypto/keys can be read and written to, but not deleted.
         self.app.get(self.root + '/storage/crypto/keys', status=404)
@@ -109,8 +117,18 @@ class TestSync11EOLService(unittest.TestCase):
         r = self.app.get(self.root + '/info/collections')
         self.assertEqual(sorted(r.json.keys()), ['crypto', 'meta'])
         self.app.get(self.root + '/storage/crypto/keys')
+        # It uploads migration info into fxa_credentials.
+        SENTINEL = '{"uid": "foobar"}'
+        self.app.put(self.root + '/storage/meta/fxa_credentials', SENTINEL)
         # It goes to actually sync, and sees the EOL error.
         self.app.post(self.root + '/storage/bookmarks', '[{}]', status=513)
+        # Another device comes along and checks /info/collections.
+        r = self.app.get(self.root + '/info/collections')
+        self.assertEqual(sorted(r.json.keys()), ['crypto', 'meta'])
+        # It bootstraps into the encryption and fetches the migration data.
+        self.app.get(self.root + '/storage/crypto/keys')
+        r = self.app.get(self.root + '/storage/meta/fxa_credentials')
+        self.assertEqual(r.json['uid'], 'foobar')
 
 
 class TestSync11EOLServiceConfig(unittest.TestCase):
