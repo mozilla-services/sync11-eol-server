@@ -10,11 +10,13 @@ It provides a tiny portion of the Sync1.1 API as documented here:
     https://docs.services.mozilla.com/storage/apis-1.1.html
 
 It allows reads from "/info/collections", reads/writes to "meta/global" and
-"crypto/keys", and deletes to "/storage".  All other requests are rejected
-with a special "513 SERVICE EOL" error that should trigger old sync clients
-to show a service-deprecation message to the user.
+and "meta/fxa_credentials" and "crypto/keys", and deletes to "/storage".  All
+other requests are rejected with a special "513 SERVICE EOL" error that should
+trigger old sync clients to show a service-deprecation message to the user.
 
-The allowed requests are designed to work around a client bug, where the EOL
+In theory, this is enough to allow clients to show appropriate messaging
+to the user and to trigger an offer of the guided sync upgrade flow.  The
+allowed requests are designed to work around a client bug, where the EOL
 messaging is not shown if it is "trumped" by an error at certain early stages
 of the sync sequence.  See the following bug for more details:
 

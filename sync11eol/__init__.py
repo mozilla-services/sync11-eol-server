@@ -12,13 +12,23 @@ from mozsvc.config import get_configurator, SettingsDict
 from mozsvc.storage.mcclient import MemcachedClient
 
 
-# The memcached TTL, in seconds.  Since we're not actually storing any client
-# data, we can expire its metadata from memcached quite aggressively.
-DEFAULT_MEMCACHED_TTL = 60
+# The default memcached TTL, in seconds.
+# We use two days, which should be long enough for multi-device clusters to
+# process a migration via the /meta/fxa_credentials sentinel, but not so long
+# as to be problemantic in production.
+DEFAULT_MEMCACHED_TTL = 2 * 24 * 60 * 60
 
 # Field defaults to use in the EOL json message.
-DEFAULT_EOL_URL = "https://account.services.mozilla.com/"
-DEFAULT_EOL_MESSAGE = "sync1.1 service has reached end-of-life"
+DEFAULT_EOL_MESSAGE = "The sync1.1 service has been shut down"
+DEFAULT_EOL_URL = "https://support.mozilla.org/kb/" + \
+                  "how-to-update-to-the-new-firefox-sync"
+
+
+ALLOWED_BSO_NAMES = (
+    "meta/global",
+    "meta/fxa_credentials",
+    "crypto/keys",
+)
 
 
 def get_timestamp():
@@ -90,25 +100,37 @@ def put_bso(request, collection):
 @view_config(route_name="metaglobal", request_method="GET")
 def get_meta_global(request):
     """Read the stored meta/global BSO."""
-    return get_bso(request, "meta")
+    return get_bso(request, "meta/global")
 
 
 @view_config(route_name="metaglobal", request_method="PUT")
 def put_meta_global(request):
     """Write the stored meta/global BSO."""
-    return put_bso(request, "meta")
+    return put_bso(request, "meta/global")
+
+
+@view_config(route_name="metafxa", request_method="GET")
+def get_meta_fxa_credentials(request):
+    """Read the stored meta/fxa_credentials BSO."""
+    return get_bso(request, "meta/fxa_credentials")
+
+
+@view_config(route_name="metafxa", request_method="PUT")
+def put_meta_fxa_credentials(request):
+    """Write the stored meta/fxa_credentials BSO."""
+    return put_bso(request, "meta/fxa_credentials")
 
 
 @view_config(route_name="cryptokeys", request_method="GET")
 def get_crypto_keys(request):
     """Read the stored crypto/keys BSO."""
-    return get_bso(request, "crypto")
+    return get_bso(request, "crypto/keys")
 
 
 @view_config(route_name="cryptokeys", request_method="PUT")
 def put_crypto_keys(request):
     """Write the stored crypto/keys BSO."""
-    return put_bso(request, "crypto")
+    return put_bso(request, "crypto/keys")
 
 
 @view_config(route_name="collections", renderer="json")
@@ -119,18 +141,19 @@ def get_info_collections(request):
     the only two that will ever be reported.
     """
     info = {}
-    for collection in ("meta", "crypto"):
-        bso = mc_get(request, collection)
+    for name in ALLOWED_BSO_NAMES:
+        bso = mc_get(request, name)
         if bso is not None:
-            info[collection] = bso["modified"]
+            collection = name.split("/")[0]
+            info[collection] = max(info.get(collection, 0), bso["modified"])
     return info
 
 
 @view_config(route_name="storage", request_method="DELETE")
 def del_storage(request):
     """Delete all the stored data for the user."""
-    for collection in ("meta", "crypto"):
-        mc_del(request, collection)
+    for name in ALLOWED_BSO_NAMES:
+        mc_del(request, name)
     r = Response("0", status=200)
     r.headers["Content-Type"] = "application/json"
     r.headers["X-Weave-Timestamp"] = str(get_timestamp())
@@ -139,6 +162,7 @@ def del_storage(request):
 
 @view_config(route_name="other")
 @view_config(route_name="metaglobal", request_method="DELETE")
+@view_config(route_name="metafxa", request_method="DELETE")
 @view_config(route_name="cryptokeys", request_method="DELETE")
 def hard_eol(request):
     """Send a 513 SERVICE EOL response.
@@ -166,6 +190,7 @@ def includeme(config):
     prefix = "/{api:1.0|1|1.1}/{username:[a-zA-Z0-9._-]{1,100}}"
     config.add_route("collections", prefix + "/info/collections")
     config.add_route("metaglobal", prefix + "/storage/meta/global")
+    config.add_route("metafxa", prefix + "/storage/meta/fxa_credentials")
     config.add_route("cryptokeys", prefix + "/storage/crypto/keys")
     config.add_route("storage", prefix + "/storage")
     config.add_route("other", prefix + "*other")
