@@ -2,8 +2,11 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
+import os
+import hmac
 import json
 import time
+import hashlib
 
 from pyramid.response import Response
 from pyramid.view import view_config
@@ -30,36 +33,48 @@ def get_timestamp():
     return int(time.time())
 
 
-def mc_get(request, collection):
-    """Helper to get info for a user's collection out of memcached."""
+def mc_key(request, name):
+    """Calculate the key under which a user's BSO is stored in memcached.
+
+    This function provides a primitive kind of "authentication" by hashing
+    the user's credentials into the name of the key.  The only way to get
+    the data back is to provide the same credentials.
+    """
+    secret_key = request.registry.settings["sync11eol.secret_key"]
+    username = request.matchdict["username"]
+    authz = request.headers.get("Authorization", "")
+    if authz:
+        authz = authz.rsplit(None, 1)[-1]
+    authz_hash = hmac.new(secret_key, authz, hashlib.sha256).hexdigest()
+    return "/".join((username, authz_hash, name))
+
+
+def mc_get(request, name):
+    """Helper to get info for a user's BSO out of memcached."""
     mc = request.registry["sync11eol.mcclient"]
-    key = request.matchdict["username"] + "/" + collection
+    key = mc_key(request, name)
     return mc.get(key)
 
 
-def mc_set(request, collection, value):
-    """Helper to set info for a user's collection in memcached."""
+def mc_set(request, name, value):
+    """Helper to set info for a user's BSO in memcached."""
     registry = request.registry
     mc = registry["sync11eol.mcclient"]
-    key = request.matchdict["username"] + "/" + collection
+    key = mc_key(request, name)
     ttl = registry.settings.get("memcached.ttl", DEFAULT_MEMCACHED_TTL)
     return mc.set(key, value, time=ttl)
 
 
-def mc_del(request, collection):
-    """Helper to delete info for a user's collection in memcached."""
+def mc_del(request, name):
+    """Helper to delete info for a user's BSO in memcached."""
     mc = request.registry["sync11eol.mcclient"]
-    key = request.matchdict["username"] + "/" + collection
+    key = mc_key(request, name)
     return mc.delete(key)
 
 
-def get_bso(request, collection):
-    """Get the data stored for a user's collection in memcached.
-
-    All the collections we're interested in host a single BSO, so we can
-    read it directly rather than dealing with a list of BSOs.
-    """
-    bso = mc_get(request, collection)
+def get_bso(request, name):
+    """Get the data stored for a user's BSO in memcached."""
+    bso = mc_get(request, name)
     if bso is None:
         return Response(status=404)
     r = Response(json.dumps(bso), status=200)
@@ -68,19 +83,15 @@ def get_bso(request, collection):
     return r
 
 
-def put_bso(request, collection):
-    """set the data stored for a user's collection in memcached.
-
-    All the collections we're interested in host a single BSO, so we can
-    write it directly rather than dealing with a list of BSOs.
-    """
+def put_bso(request, name):
+    """set the data stored for a user's BSO in memcached."""
     now = get_timestamp()
     try:
         bso = json.loads(request.body)
         bso["modified"] = now
     except (ValueError, TypeError):
         return Response("0", status="400")
-    mc_set(request, collection, bso)
+    mc_set(request, name, bso)
     r = Response(str(now), status=200)
     r.headers["Content-Type"] = "application/json"
     r.headers["X-Weave-Timestamp"] = str(now)
@@ -174,8 +185,12 @@ def includeme(config):
     settings = config.registry.settings
     if not isinstance(settings, SettingsDict):
         settings = SettingsDict(settings)
+
     mc = MemcachedClient(**settings.getsection("memcached"))
     config.registry["sync11eol.mcclient"] = mc
+
+    if "sync11eol.secret_key" not in config.registry.settings:
+        config.registry.settings["sync11eol.secret_key"] = os.urandom(32)
 
 
 def main(global_config, **settings):

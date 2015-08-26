@@ -24,6 +24,7 @@ To build in a local virtualenv, simply do::
 
     make build
 
-To deploy, make sure you've got memcached running and do::
+To deploy, edit `deployment.ini` to set a secret key and the details of your
+memcached server, then do::
 
     make serve

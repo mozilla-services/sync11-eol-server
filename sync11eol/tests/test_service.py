@@ -73,6 +73,31 @@ class TestSync11EOLService(unittest.TestCase):
         self.app.delete(self.root + '/storage/tabs', status=513)
         self.app.get(self.root + '/meta/globular', status=513)
 
+    def test_authentication(self):
+        url = self.root + '/storage/meta/global'
+        # Can set/get data without explicit credentials.
+        self.app.put(url, '{"from": 0}')
+        r = self.app.get(url)
+        self.assertEquals(r.json['from'], 0)
+        # Can't read that data when credentials are provided.
+        auth1 = {'Authorization': 'Basic ONE'}
+        r = self.app.get(url, headers=auth1, status=404)
+        # Can set private data when credentials are provided.
+        self.app.put(url, '{"from": 1}', headers=auth1)
+        r = self.app.get(url, headers=auth1)
+        self.assertEquals(r.json['from'], 1)
+        # And it doesn't clobber data from other credentials.
+        r = self.app.get(url)
+        self.assertEquals(r.json['from'], 0)
+        # Different credentials give different data.
+        auth2 = {'Authorization': 'Basic TWO'}
+        r = self.app.get(url, headers=auth2, status=404)
+        self.app.put(url, '{"from": 2}', headers=auth2)
+        r = self.app.get(url, headers=auth2)
+        self.assertEquals(r.json['from'], 2)
+        r = self.app.get(url, headers=auth1)
+        self.assertEquals(r.json['from'], 1)
+
     def test_expected_device_flow(self):
         # The client checks /meta/global and finds it missing.
         self.app.get(self.root + '/storage/meta/global', status=404)
@@ -122,6 +147,14 @@ class TestSync11EOLServiceConfig(unittest.TestCase):
             self.assertEquals(alert['code'], 'hard-eol')
             self.assertEquals(alert['message'], 'SYNC HAS SUNK')
             self.assertEquals(alert['url'], 'http://sadtrombone.com/')
+
+    def test_configurable_secret_key(self):
+        settings = {
+            'sync11eol.secret_key': 'secretive',
+        }
+        with self.make_config(settings=settings) as config:
+            secret_key = config.registry.settings['sync11eol.secret_key']
+            self.assertEquals(secret_key, 'secretive')
 
     def test_configurable_memcached_settings(self):
         settings = {
