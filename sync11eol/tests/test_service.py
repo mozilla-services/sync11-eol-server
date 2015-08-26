@@ -17,11 +17,11 @@ class TestSync11EOLService(unittest.TestCase):
 
     def setUp(self):
         self.config = testing.setUp()
-        self.config.include("sync11eol")
+        self.config.include('sync11eol')
         wsgiapp = self.config.make_wsgi_app()
         wsgiapp = CatchErrors(wsgiapp)
         self.app = TestApp(wsgiapp)
-        self.username = os.urandom(10).encode("hex")
+        self.username = os.urandom(10).encode('hex')
         self.root = '/1.1/' + self.username
 
     def tearDown(self):
@@ -66,9 +66,9 @@ class TestSync11EOLService(unittest.TestCase):
     def test_other(self):
         # All other parts of the API return the EOL response.
         r = self.app.get(self.root + '/storage/bookmarks', status=513)
-        alert = json.loads(r.headers["X-Weave-Alert"])
-        self.assertEquals(sorted(alert.keys()), ["code", "message", "url"])
-        self.assertEquals(alert["code"], "hard-eol")
+        alert = json.loads(r.headers['X-Weave-Alert'])
+        self.assertEquals(sorted(alert.keys()), ['code', 'message', 'url'])
+        self.assertEquals(alert['code'], 'hard-eol')
         self.app.post(self.root + '/storage/history', '[{}]', status=513)
         self.app.delete(self.root + '/storage/tabs', status=513)
         self.app.get(self.root + '/meta/globular', status=513)
@@ -92,7 +92,7 @@ class TestSync11EOLServiceConfig(unittest.TestCase):
 
     def setUp(self):
         self.config = testing.setUp()
-        self.config.include("sync11eol")
+        self.config.include('sync11eol')
         wsgiapp = self.config.make_wsgi_app()
         wsgiapp = CatchErrors(wsgiapp)
         self.app = TestApp(wsgiapp)
@@ -100,7 +100,7 @@ class TestSync11EOLServiceConfig(unittest.TestCase):
     @contextlib.contextmanager
     def make_config(self, **kwds):
         config = testing.setUp(**kwds)
-        config.include("sync11eol")
+        config.include('sync11eol')
         config.commit()
         yield config
         testing.tearDown()
@@ -112,23 +112,23 @@ class TestSync11EOLServiceConfig(unittest.TestCase):
 
     def test_configurable_alert_details(self):
         settings = {
-            "sync11eol.message": "SYNC HAS SUNK",
-            "sync11eol.url": "http://sadtrombone.com/"
+            'sync11eol.message': 'SYNC HAS SUNK',
+            'sync11eol.url': 'http://sadtrombone.com/'
         }
         with self.make_app(settings=settings) as app:
             r = app.get('/1.1/testme/storage/bookmarks', status=513)
-            alert = json.loads(r.headers["X-Weave-Alert"])
-            self.assertEquals(sorted(alert.keys()), ["code", "message", "url"])
-            self.assertEquals(alert["code"], "hard-eol")
-            self.assertEquals(alert["message"], "SYNC HAS SUNK")
-            self.assertEquals(alert["url"], "http://sadtrombone.com/")
+            alert = json.loads(r.headers['X-Weave-Alert'])
+            self.assertEquals(sorted(alert.keys()), ['code', 'message', 'url'])
+            self.assertEquals(alert['code'], 'hard-eol')
+            self.assertEquals(alert['message'], 'SYNC HAS SUNK')
+            self.assertEquals(alert['url'], 'http://sadtrombone.com/')
 
     def test_configurable_memcached_settings(self):
         settings = {
-            "memcached.server": "localhost:12345",
-            "memcached.key_prefix": "testme",
+            'memcached.server': 'localhost:12345',
+            'memcached.key_prefix': 'testme',
         }
         with self.make_config(settings=settings) as config:
-            mc = config.registry["sync11eol.mcclient"]
-            self.assertEquals(mc.pool.server, "localhost:12345")
-            self.assertEquals(mc.key_prefix, "testme")
+            mc = config.registry['sync11eol.mcclient']
+            self.assertEquals(mc.pool.server, 'localhost:12345')
+            self.assertEquals(mc.key_prefix, 'testme')
