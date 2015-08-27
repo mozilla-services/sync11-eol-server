@@ -9,7 +9,7 @@ tests_require = requires = ['WebTest']
             
 
 setup(name='sync11eol',
-      version='0.0.1',
+      version='0.1.0',
       packages=find_packages(),
       include_package_data=True,
       zip_safe=False,
